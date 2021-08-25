@@ -59,6 +59,26 @@
 	const MODES = { UNKNOWN: 0, NORMAL: 1, CARDBOARD: 2, STEREO: 3 };
 
 	/**
+	 * CONTROL_BUTTONS
+	 * @module CONTROL_BUTTONS
+	 * @example PANOLENS.VIEWER.CONTROL_BUTTONS
+	 * @property {string} FULLSCREEN
+	 * @property {string} SETTING
+	 * @property {string} VIDEO
+	 */
+	const CONTROL_BUTTONS = { FULLSCREEN: 'fullscreen', SETTING: 'setting', VIDEO: 'video' };
+
+	/**
+	 * OUTPUTS
+	 * @module OUTPUTS
+	 * @example PANOLENS.VIEWER.OUTPUTS
+	 * @property {string} NONE
+	 * @property {string} CONSOLE
+	 * @property {string} OVERLAY
+	 */
+	const OUTPUTS = { NONE: 'none', CONSOLE: 'console', OVERLAY: 'overlay' };
+
+	/**
 	 * Data URI Images
 	 * @module DataImage
 	 * @example PANOLENS.DataImage.Info
@@ -128,12 +148,21 @@
 
 	            if (onLoad) {
 
-	                setTimeout(function () {
+	                if ( cached.complete && cached.src ) {
+	                    setTimeout( function () {
 
-	                    onProgress({loaded: 1, total: 1});
-	                    onLoad(cached);
+	                        onProgress( { loaded: 1, total: 1 } );
+	                        onLoad( cached );
 
-	                }, 0);
+	                    }, 0 );
+	                } else {
+	                    cached.addEventListener( 'load', function () {
+
+	                        onProgress( { loaded: 1, total: 1 } );
+	                        onLoad( cached );
+
+	                    }, false );
+	                }
 
 	            }
 
@@ -165,14 +194,7 @@
 	        image.crossOrigin = this.crossOrigin !== undefined ? this.crossOrigin : '';
 
 	        request = new window.XMLHttpRequest();
-	        request.open('GET', url, true);
-	        if (process.env.npm_lifecycle_event !== 'test') {
-	            request.onreadystatechange = function () {
-	                if (this.readyState === 4 && this.status >= 400) {
-	                    onError();
-	                }
-	            };
-	        }
+	        request.open('GET', url, true);       
 	        request.responseType = 'arraybuffer';
 	        request.addEventListener( 'error', onError );
 	        request.addEventListener( 'progress', event => {
@@ -4100,7 +4122,7 @@
 
 	        if ( window.innerWidth <= 800 ) {
 
-	            zoomLevel = this.ImageQualityFair;
+	            zoomLevel = this.ImageQualityMedium;
 
 	        } else if ( window.innerWidth > 800 &&  window.innerWidth <= 1280 ) {
 
@@ -5391,8 +5413,12 @@
 	        const maxW = this.maxW;
 	        const maxH = this.maxH;
 
-	        x *= 512;
-	        y *= 512;
+	        let coef = 512;        
+	        if (this._panoId.length > 25) {
+	            coef = 605.5;
+	        }
+	        x *= coef;
+	        y *= coef;
 
 	        const px = Math.floor( x / maxW );
 	        const py = Math.floor( y / maxH );
@@ -5400,7 +5426,7 @@
 	        x -= px * maxW;
 	        y -= py * maxH;
 
-	        this._ctx[ py * this._wc + px ].drawImage( texture, 0, 0, texture.width, texture.height, x, y, 512, 512 );
+	        this._ctx[ py * this._wc + px ].drawImage( texture, 0, 0, texture.width, texture.height, x, y, coef, coef);
 
 	        this.progress();
 			
@@ -5441,8 +5467,12 @@
 
 	        this.setProgress( 0, 1 );
 			
-	        const w = this.levelsW[ this._zoom ];
-	        const h = this.levelsH[ this._zoom ];
+	        let w = this.levelsW[ this._zoom ];
+	        let h = this.levelsH[ this._zoom ];
+	        if (this._panoId.length > 25) {
+	            w -= 1;
+	            h -= 1;
+	        }
 	        const self = this;
 				
 	        this._count = 0;
@@ -5450,9 +5480,14 @@
 
 	        const { useWebGL } = this._parameters;
 
+	 
 	        for( let y = 0; y < h; y++ ) {
 	            for( let x = 0; x < w; x++ ) {
-	                const url = 'https://geo0.ggpht.com/cbk?cb_client=maps_sv.tactile&authuser=0&hl=en&output=tile&zoom=' + this._zoom + '&x=' + x + '&y=' + y + '&panoid=' + this._panoId + '&nbt&fover=2';
+	                let url = 'https://geo0.ggpht.com/cbk?cb_client=maps_sv.tactile&authuser=0&hl=en&output=tile&zoom=' + this._zoom + '&x=' + x + '&y=' + y + '&panoid=' + this._panoId + '&nbt&fover=2';
+	                if (this._panoId.length > 25) {
+	                    var idForUrl = this._panoId.substring(2);
+	                    url = 'https://lh3.ggpht.com/p/'+ idForUrl +'=x'+x+'-y'+y+'-z'+this._zoom;
+	                }
 	                ( function( x, y ) { 
 	                    if( useWebGL ) {
 	                        const texture = TextureLoader.load( url, null, function() {
@@ -5497,7 +5532,11 @@
 	            if (status === google.maps.StreetViewStatus.OK) {
 	                self.result = result;
 	                self.copyright = result.copyright;
-	                self._panoId = result.location.pano;
+	                if (id.length > 25) {
+	                    self._panoId = id;
+	                } else {
+	                    self._panoId = result.location.pano;
+	                }
 	                self.composePanorama();
 	            }
 	        });
@@ -5511,11 +5550,10 @@
 	     * @instance
 	     */
 	    setZoom: function( z ) {
-
 	        this._zoom = z;
 	        this.adaptTextureToZoom();
 	    }
-		
+
 	} );
 
 	/**
@@ -9566,6 +9604,7 @@
 
 	exports.BasicPanorama = BasicPanorama;
 	exports.CONTROLS = CONTROLS;
+	exports.CONTROL_BUTTONS = CONTROL_BUTTONS;
 	exports.CameraPanorama = CameraPanorama;
 	exports.CubePanorama = CubePanorama;
 	exports.CubeTextureLoader = CubeTextureLoader;
@@ -9579,6 +9618,7 @@
 	exports.LittlePlanet = LittlePlanet;
 	exports.MODES = MODES;
 	exports.Media = Media;
+	exports.OUTPUTS = OUTPUTS;
 	exports.Panorama = Panorama;
 	exports.REVISION = REVISION;
 	exports.Reticle = Reticle;

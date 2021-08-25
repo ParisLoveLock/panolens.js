@@ -55,6 +55,26 @@ const CONTROLS = { ORBIT: 0, DEVICEORIENTATION: 1 };
 const MODES = { UNKNOWN: 0, NORMAL: 1, CARDBOARD: 2, STEREO: 3 };
 
 /**
+ * CONTROL_BUTTONS
+ * @module CONTROL_BUTTONS
+ * @example PANOLENS.VIEWER.CONTROL_BUTTONS
+ * @property {string} FULLSCREEN
+ * @property {string} SETTING
+ * @property {string} VIDEO
+ */
+const CONTROL_BUTTONS = { FULLSCREEN: 'fullscreen', SETTING: 'setting', VIDEO: 'video' };
+
+/**
+ * OUTPUTS
+ * @module OUTPUTS
+ * @example PANOLENS.VIEWER.OUTPUTS
+ * @property {string} NONE
+ * @property {string} CONSOLE
+ * @property {string} OVERLAY
+ */
+const OUTPUTS = { NONE: 'none', CONSOLE: 'console', OVERLAY: 'overlay' };
+
+/**
  * Data URI Images
  * @module DataImage
  * @example PANOLENS.DataImage.Info
@@ -124,12 +144,21 @@ const ImageLoader = {
 
             if (onLoad) {
 
-                setTimeout(function () {
+                if ( cached.complete && cached.src ) {
+                    setTimeout( function () {
 
-                    onProgress({loaded: 1, total: 1});
-                    onLoad(cached);
+                        onProgress( { loaded: 1, total: 1 } );
+                        onLoad( cached );
 
-                }, 0);
+                    }, 0 );
+                } else {
+                    cached.addEventListener( 'load', function () {
+
+                        onProgress( { loaded: 1, total: 1 } );
+                        onLoad( cached );
+
+                    }, false );
+                }
 
             }
 
@@ -161,14 +190,7 @@ const ImageLoader = {
         image.crossOrigin = this.crossOrigin !== undefined ? this.crossOrigin : '';
 
         request = new window.XMLHttpRequest();
-        request.open('GET', url, true);
-        if (process.env.npm_lifecycle_event !== 'test') {
-            request.onreadystatechange = function () {
-                if (this.readyState === 4 && this.status >= 400) {
-                    onError();
-                }
-            };
-        }
+        request.open('GET', url, true);       
         request.responseType = 'arraybuffer';
         request.addEventListener( 'error', onError );
         request.addEventListener( 'progress', event => {
@@ -4096,7 +4118,7 @@ Panorama.prototype = Object.assign( Object.create( Mesh.prototype ), {
 
         if ( window.innerWidth <= 800 ) {
 
-            zoomLevel = this.ImageQualityFair;
+            zoomLevel = this.ImageQualityMedium;
 
         } else if ( window.innerWidth > 800 &&  window.innerWidth <= 1280 ) {
 
@@ -5387,8 +5409,12 @@ Object.assign( GoogleStreetviewLoader.prototype, {
         const maxW = this.maxW;
         const maxH = this.maxH;
 
-        x *= 512;
-        y *= 512;
+        let coef = 512;        
+        if (this._panoId.length > 25) {
+            coef = 605.5;
+        }
+        x *= coef;
+        y *= coef;
 
         const px = Math.floor( x / maxW );
         const py = Math.floor( y / maxH );
@@ -5396,7 +5422,7 @@ Object.assign( GoogleStreetviewLoader.prototype, {
         x -= px * maxW;
         y -= py * maxH;
 
-        this._ctx[ py * this._wc + px ].drawImage( texture, 0, 0, texture.width, texture.height, x, y, 512, 512 );
+        this._ctx[ py * this._wc + px ].drawImage( texture, 0, 0, texture.width, texture.height, x, y, coef, coef);
 
         this.progress();
 		
@@ -5437,8 +5463,12 @@ Object.assign( GoogleStreetviewLoader.prototype, {
 
         this.setProgress( 0, 1 );
 		
-        const w = this.levelsW[ this._zoom ];
-        const h = this.levelsH[ this._zoom ];
+        let w = this.levelsW[ this._zoom ];
+        let h = this.levelsH[ this._zoom ];
+        if (this._panoId.length > 25) {
+            w -= 1;
+            h -= 1;
+        }
         const self = this;
 			
         this._count = 0;
@@ -5446,9 +5476,14 @@ Object.assign( GoogleStreetviewLoader.prototype, {
 
         const { useWebGL } = this._parameters;
 
+ 
         for( let y = 0; y < h; y++ ) {
             for( let x = 0; x < w; x++ ) {
-                const url = 'https://geo0.ggpht.com/cbk?cb_client=maps_sv.tactile&authuser=0&hl=en&output=tile&zoom=' + this._zoom + '&x=' + x + '&y=' + y + '&panoid=' + this._panoId + '&nbt&fover=2';
+                let url = 'https://geo0.ggpht.com/cbk?cb_client=maps_sv.tactile&authuser=0&hl=en&output=tile&zoom=' + this._zoom + '&x=' + x + '&y=' + y + '&panoid=' + this._panoId + '&nbt&fover=2';
+                if (this._panoId.length > 25) {
+                    var idForUrl = this._panoId.substring(2);
+                    url = 'https://lh3.ggpht.com/p/'+ idForUrl +'=x'+x+'-y'+y+'-z'+this._zoom;
+                }
                 ( function( x, y ) { 
                     if( useWebGL ) {
                         const texture = TextureLoader.load( url, null, function() {
@@ -5493,7 +5528,11 @@ Object.assign( GoogleStreetviewLoader.prototype, {
             if (status === google.maps.StreetViewStatus.OK) {
                 self.result = result;
                 self.copyright = result.copyright;
-                self._panoId = result.location.pano;
+                if (id.length > 25) {
+                    self._panoId = id;
+                } else {
+                    self._panoId = result.location.pano;
+                }
                 self.composePanorama();
             }
         });
@@ -5507,11 +5546,10 @@ Object.assign( GoogleStreetviewLoader.prototype, {
      * @instance
      */
     setZoom: function( z ) {
-
         this._zoom = z;
         this.adaptTextureToZoom();
     }
-	
+
 } );
 
 /**
@@ -9560,4 +9598,4 @@ if ( REVISION$1 != THREE_REVISION ) {
  */
 window.TWEEN = Tween;
 
-export { BasicPanorama, CONTROLS, CameraPanorama, CubePanorama, CubeTextureLoader, DataImage, EmptyPanorama, GoogleStreetviewPanorama, ImageLittlePlanet, ImageLoader, ImagePanorama, Infospot, LittlePlanet, MODES, Media, Panorama, REVISION, Reticle, THREE_REVISION, THREE_VERSION, TextureLoader, VERSION, VideoPanorama, Viewer, Widget };
+export { BasicPanorama, CONTROLS, CONTROL_BUTTONS, CameraPanorama, CubePanorama, CubeTextureLoader, DataImage, EmptyPanorama, GoogleStreetviewPanorama, ImageLittlePlanet, ImageLoader, ImagePanorama, Infospot, LittlePlanet, MODES, Media, OUTPUTS, Panorama, REVISION, Reticle, THREE_REVISION, THREE_VERSION, TextureLoader, VERSION, VideoPanorama, Viewer, Widget };

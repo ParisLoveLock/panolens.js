@@ -87,15 +87,7 @@ const ImageLoader = {
         image.crossOrigin = this.crossOrigin !== undefined ? this.crossOrigin : '';
 
         request = new window.XMLHttpRequest();
-        request.open('GET', url, true);
-        if (process.env.npm_lifecycle_event !== 'test') {
-            /* istanbul ignore next */
-            request.onreadystatechange = function () {
-                if (this.readyState === 4 && this.status >= 400) {
-                    onError();
-                }
-            };
-        }
+        request.open('GET', url, true);       
         request.responseType = 'arraybuffer';
         request.addEventListener( 'error', onError );
         request.addEventListener( 'progress', event => {
