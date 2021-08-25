@@ -266,7 +266,7 @@ Panorama.prototype = Object.assign( Object.create( THREE.Mesh.prototype ), {
 
         if ( window.innerWidth <= 800 ) {
 
-            zoomLevel = this.ImageQualityFair;
+            zoomLevel = this.ImageQualityMedium;
 
         } else if ( window.innerWidth > 800 &&  window.innerWidth <= 1280 ) {
 
